@@ -120,18 +120,19 @@ async function checkCalendarAndNotify() {
     const events = await getUpcomingEvents(8 * 24 * 60);
     console.log(`Fetched ${events.length} events from Google Calendar.`);
 
-for (const e of events.slice(0, 10)) {
-  const startStr = e.start?.dateTime || e.start?.date;
-  console.log(
-    "•",
-    (e.summary || "(no title)"),
-    "| start:",
-    startStr,
-    "| id:",
-    e.id
-  );
-}
+  for (const e of events.slice(0, 10)) {
+    const startStr = e.start?.dateTime || e.start?.date;
+    console.log(
+      "•",
+      (e.summary || "(no title)"),
+      "| start:",
+      startStr,
+      "| id:",
+      e.id
+    );
+  }
 
+    
     const now = new Date();
 
     if (!events.length) {
