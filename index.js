@@ -7,9 +7,7 @@ const { google } = require("googleapis");
 const cron = require("node-cron");
 const path = require("path");
 
-// -------------------
-// 1. Tiny web server (for health checks / hosting later)
-// -------------------
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,16 +20,12 @@ app.listen(PORT, () => {
   console.log(`Health check server listening on port ${PORT}`);
 });
 
-// -------------------
-// 2. Slack client
-// -------------------
+
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
 
-// -------------------
-// 3. Google Calendar client (service account)
-// -------------------
+
 
 const keyPath = path.join(__dirname, "service-account-key.json");
 const serviceAccount = require(keyPath);
@@ -45,9 +39,7 @@ const jwtClient = new google.auth.JWT(
 
 const calendar = google.calendar({ version: "v3", auth: jwtClient });
 
-// -------------------
-// 4. Timing constants
-// -------------------
+
 
 // Minutes in a week and a day
 const WEEK_MIN = 7 * 24 * 60; // 10080
@@ -57,11 +49,14 @@ const DAY_MIN = 24 * 60;      // 1440
 // With cron every 5 minutes, a 10-minute window is safe
 const WINDOW_MIN = 10;
 
-// -------------------
-// 5. Helper: fetch events in the next X minutes
-// -------------------
 
+let googleAuthed = false;
 async function getUpcomingEvents(minutesAhead = 8 * 24 * 60) {
+  if (!googleAuthed) {
+    await jwtClient.authorize();
+    googleAuthed = true;
+    console.log("✅ Google JWT authorized (service account identity established).");
+  }
   const now = new Date();
   const timeMin = now.toISOString();
   const timeMax = new Date(now.getTime() + minutesAhead * 60 * 1000).toISOString();
@@ -77,9 +72,7 @@ async function getUpcomingEvents(minutesAhead = 8 * 24 * 60) {
   return res.data.items || [];
 }
 
-// -------------------
-// 6. Track which events we've already reminded on
-// -------------------
+
 
 // 1-week-before reminders
 const remindedWeek = new Set();
@@ -116,9 +109,7 @@ async function sendSlackReminder(event, whenLabel) {
   console.log(`Sent ${whenLabel} reminder for event:`, event.id, event.summary);
 }
 
-// -------------------
-// 8. Main loop: check events and send reminders
-// -------------------
+
 
 async function checkCalendarAndNotify() {
   try {
@@ -165,9 +156,7 @@ async function checkCalendarAndNotify() {
   }
 }
 
-// -------------------
-// 9. Cron scheduler
-// -------------------
+
 
 // Default: every 5 minutes (from .env or fallback)
 cron.schedule(process.env.CHECK_INTERVAL_CRON || "*/5 * * * *", () => {
