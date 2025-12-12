@@ -29,13 +29,16 @@ const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
 
 const keyPath = path.join(__dirname, "service-account-key.json");
 const serviceAccount = require(keyPath);
+console.log("Loaded service account email:", serviceAccount.client_email);
+console.log("Has private_key:", !!serviceAccount.private_key);
 
-const jwtClient = new google.auth.JWT(
-  serviceAccount.client_email,
-  null,
-  serviceAccount.private_key,
-  ["https://www.googleapis.com/auth/calendar.readonly"]
-);
+
+const jwtClient = new google.auth.JWT({
+  email: serviceAccount.client_email,
+  key: serviceAccount.private_key.replace(/\\n/g, "\n"),
+  scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
+});
+
 
 const calendar = google.calendar({ version: "v3", auth: jwtClient });
 
@@ -115,6 +118,20 @@ async function checkCalendarAndNotify() {
   try {
     // Look ahead 8 days so we catch both 1-week and 1-day windows
     const events = await getUpcomingEvents(8 * 24 * 60);
+    console.log(`Fetched ${events.length} events from Google Calendar.`);
+
+for (const e of events.slice(0, 10)) {
+  const startStr = e.start?.dateTime || e.start?.date;
+  console.log(
+    "•",
+    (e.summary || "(no title)"),
+    "| start:",
+    startStr,
+    "| id:",
+    e.id
+  );
+}
+
     const now = new Date();
 
     if (!events.length) {
