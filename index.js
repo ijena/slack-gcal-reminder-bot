@@ -101,20 +101,28 @@ const remindedDay = new Set();
 // -------------------
 
 async function sendSlackReminder(event, whenLabel) {
-  const start = event.start.dateTime || event.start.date;
-  const startTime = new Date(start).toLocaleString();
+  const isAllDay = !!event.start?.date && !event.start?.dateTime;
+
+  let prettyStart;
+  if (isAllDay) {
+    // event.start.date is already the correct calendar date (YYYY-MM-DD)
+    // Do NOT new Date() it.
+    prettyStart = event.start.date;
+  } else {
+    // Timed event: format in LA timezone
+    prettyStart = new Intl.DateTimeFormat("en-US", {
+      timeZone: TIMEZONE,
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(event.start.dateTime));
+  }
 
   let text = `⏰ *Upcoming event in ${whenLabel}*\n`;
   text += `*${event.summary || "Untitled event"}*\n`;
-  text += `📅 ${startTime}\n`;
+  text += `📅 ${prettyStart}\n`;
 
-  if (event.location) {
-    text += `📍 ${event.location}\n`;
-  }
-
-  if (event.htmlLink) {
-    text += `🔗 <${event.htmlLink}|Open in Google Calendar>`;
-  }
+  if (event.location) text += `📍 ${event.location}\n`;
+  if (event.htmlLink) text += `🔗 <${event.htmlLink}|Open in Google Calendar>`;
 
   await slack.chat.postMessage({
     channel: SLACK_CHANNEL_ID,
@@ -124,6 +132,7 @@ async function sendSlackReminder(event, whenLabel) {
 
   console.log(`Sent ${whenLabel} reminder for event:`, event.id, event.summary);
 }
+
 
 
 
@@ -159,8 +168,16 @@ for (const event of events) {
   const startStr = event.start.dateTime || event.start.date;
   if (!startStr) continue;
 
-  const eventStart = new Date(startStr);
-  const eventYMD = ymdInTZ(eventStart);
+  let eventYMD;
+
+// All-day event: already YYYY-MM-DD (safe)
+if (event.start.date && !event.start.dateTime) {
+  eventYMD = event.start.date;
+} else {
+  // Timed event: convert to YYYY-MM-DD in LA timezone
+  eventYMD = ymdInTZ(new Date(event.start.dateTime));
+}
+
 
   // 1-day reminders: events happening tomorrow
   if (eventYMD === tomorrowYMD && !remindedDay.has(event.id)) {
@@ -181,7 +198,7 @@ for (const event of events) {
 }
 
 //testing
-checkCalendarAndNotify();
+// checkCalendarAndNotify();
 // Default: every 5 minutes (from .env or fallback)
 cron.schedule(process.env.CHECK_INTERVAL_CRON || "*/5 * * * *", () => {
   console.log("Checking calendar for upcoming events...");
