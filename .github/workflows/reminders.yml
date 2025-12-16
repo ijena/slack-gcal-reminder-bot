@@ -1,0 +1,33 @@
+name: Slack Google Calendar Reminders
+
+on:
+  schedule:
+    # 9:00 AM Los Angeles = 17:00 UTC during PST (winter)
+    # During PDT (summer) this will run at 10:00 AM LA.
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+
+jobs:
+  run-reminder-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run bot (once)
+        run: node index.js
+        env:
+          RUN_ONCE: "true"
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
