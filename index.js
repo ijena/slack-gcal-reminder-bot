@@ -44,13 +44,25 @@ const calendar = google.calendar({ version: "v3", auth: jwtClient });
 
 
 
-// Minutes in a week and a day
-const WEEK_MIN = 7 * 24 * 60; // 10080
-const DAY_MIN = 24 * 60;      // 1440
+// // Minutes in a week and a day
+// const WEEK_MIN = 7 * 24 * 60; // 10080
+// const DAY_MIN = 24 * 60;      // 1440
 
-// How big a "window" we allow around the exact reminder time (in minutes)
-// With cron every 5 minutes, a 10-minute window is safe
-const WINDOW_MIN = 10;
+const TIMEZONE = "America/Los_Angeles";
+
+function ymdInTZ(date, timeZone = TIMEZONE) {
+  const parts = new Intl.DateTimeFormat("en-CA",{timeZone, year:"numeric", month:"2-digit", day:"2-digit"}).formatToParts(date);
+  const y = parts.find(p => p.type === "year").value;
+  const m = parts.find(p => p.type === "month").value;
+  const d = parts.find(p => p.type === "day").value;
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
 
 
 let googleAuthed = false;
@@ -70,6 +82,7 @@ async function getUpcomingEvents(minutesAhead = 8 * 24 * 60) {
     timeMax,
     singleEvents: true,
     orderBy: "startTime",
+    timeZone: TIMEZONE,
   });
 
   return res.data.items || [];
@@ -117,7 +130,7 @@ async function sendSlackReminder(event, whenLabel) {
 async function checkCalendarAndNotify() {
   try {
     // Look ahead 8 days so we catch both 1-week and 1-day windows
-    const events = await getUpcomingEvents(8 * 24 * 60);
+    const events = await getUpcomingEvents(9 * 24 * 60);
     console.log(`Fetched ${events.length} events from Google Calendar.`);
 
   for (const e of events.slice(0, 10)) {
@@ -134,48 +147,41 @@ async function checkCalendarAndNotify() {
 
     
     const now = new Date();
+const todayYMD = ymdInTZ(now);
+const tomorrowYMD = ymdInTZ(addDays(now, 1));
+const weekYMD = ymdInTZ(addDays(now, 7));
 
-    if (!events.length) {
-      console.log("No upcoming events found in the next 8 days.");
-    }
+console.log(`Today: ${todayYMD} | Tomorrow: ${tomorrowYMD} | +7 days: ${weekYMD}`);
 
-    for (const event of events) {
-      if (!event.id || !event.start) continue;
+for (const event of events) {
+  if (!event.id || !event.start) continue;
 
-      const startStr = event.start.dateTime || event.start.date;
-      const startTime = new Date(startStr);
-      const minutesToEvent = (startTime.getTime() - now.getTime()) / (60 * 1000);
+  const startStr = event.start.dateTime || event.start.date;
+  if (!startStr) continue;
 
-      // Skip past events
-      if (minutesToEvent < 0) continue;
+  const eventStart = new Date(startStr);
+  const eventYMD = ymdInTZ(eventStart);
 
-      // 1-week-before window
-      if (
-        minutesToEvent <= WEEK_MIN &&
-        minutesToEvent > WEEK_MIN - WINDOW_MIN &&
-        !remindedWeek.has(event.id)
-      ) {
-        await sendSlackReminder(event, "1 week");
-        remindedWeek.add(event.id);
-      }
+  // 1-day reminders: events happening tomorrow
+  if (eventYMD === tomorrowYMD && !remindedDay.has(event.id)) {
+    await sendSlackReminder(event, "1 day");
+    remindedDay.add(event.id);
+  }
 
-      // 1-day-before window
-      if (
-        minutesToEvent <= DAY_MIN &&
-        minutesToEvent > DAY_MIN - WINDOW_MIN &&
-        !remindedDay.has(event.id)
-      ) {
-        await sendSlackReminder(event, "1 day");
-        remindedDay.add(event.id);
-      }
-    }
+  // 1-week reminders: events happening 7 days from today
+  if (eventYMD === weekYMD && !remindedWeek.has(event.id)) {
+    await sendSlackReminder(event, "1 week");
+    remindedWeek.add(event.id);
+  }
+}
+
   } catch (err) {
     console.error("Error checking calendar:", err.response?.data || err);
   }
 }
 
-
-
+//testing
+checkCalendarAndNotify();
 // Default: every 5 minutes (from .env or fallback)
 cron.schedule(process.env.CHECK_INTERVAL_CRON || "*/5 * * * *", () => {
   console.log("Checking calendar for upcoming events...");
