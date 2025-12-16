@@ -8,17 +8,30 @@ const cron = require("node-cron");
 const path = require("path");
 
 
+//To run locally, uncomment this section
+// const app = express();
+// const PORT = process.env.PORT || 3000;
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// app.get("/", (req, res) => {
+//   res.send("Slack–Google Calendar reminder bot is running.");
+// });
 
-app.get("/", (req, res) => {
-  res.send("Slack–Google Calendar reminder bot is running.");
-});
+// app.listen(PORT, () => {
+//   console.log(`Health check server listening on port ${PORT}`);
+// });
 
-app.listen(PORT, () => {
-  console.log(`Health check server listening on port ${PORT}`);
-});
+function startServer() {
+  const app = express();
+  const PORT = process.env.PORT || 3000;
+
+  app.get("/", (req, res) => {
+    res.send("Slack–Google Calendar reminder bot is running.");
+  });
+
+  app.listen(PORT, () => {
+    console.log(`Health check server listening on port ${PORT}`);
+  });
+}
 
 
 
@@ -26,9 +39,19 @@ const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
 
 
+//to run locally, uncomment this line
+// const keyPath = path.join(__dirname, "service-account-key.json");
+// const serviceAccount = require(keyPath);
 
-const keyPath = path.join(__dirname, "service-account-key.json");
-const serviceAccount = require(keyPath);
+let serviceAccount;
+
+if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+  serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+} else {
+  const keyPath = path.join(__dirname, "service-account-key.json");
+  serviceAccount = require(keyPath);
+}
+
 console.log("Loaded service account email:", serviceAccount.client_email);
 console.log("Has private_key:", !!serviceAccount.private_key);
 
@@ -200,9 +223,36 @@ if (event.start.date && !event.start.dateTime) {
 //testing
 // checkCalendarAndNotify();
 // Default: every 5 minutes (from .env or fallback)
-cron.schedule(process.env.CHECK_INTERVAL_CRON || "*/5 * * * *", () => {
-  console.log("Checking calendar for upcoming events...");
-  checkCalendarAndNotify();
+
+// for running locally, uncomment this line
+// cron.schedule(process.env.CHECK_INTERVAL_CRON || "*/5 * * * *", () => {
+//   console.log("Checking calendar for upcoming events...");
+//   checkCalendarAndNotify();
+// });
+
+// console.log("Slack–Google Calendar reminder bot is starting up...");
+
+async function main() {
+  console.log("Slack–Google Calendar reminder bot is starting up...");
+
+  // GitHub Actions / cron-job mode: run once and exit
+  if (process.env.RUN_ONCE === "true") {
+    await checkCalendarAndNotify();
+    console.log("✅ RUN_ONCE complete. Exiting.");
+    process.exit(0);
+  }
+
+  // Local dev / always-on mode
+  startServer();
+
+  cron.schedule(process.env.CHECK_INTERVAL_CRON || "*/5 * * * *", () => {
+    console.log("Checking calendar for upcoming events...");
+    checkCalendarAndNotify();
+  });
+}
+
+main().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exit(1);
 });
 
-console.log("Slack–Google Calendar reminder bot is starting up...");
