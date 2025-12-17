@@ -98,11 +98,11 @@ async function getUpcomingEvents(minutesAhead = 8 * 24 * 60) {
   const now = new Date();
   const timeMin = now.toISOString();
   const timeMax = new Date(now.getTime() + minutesAhead * 60 * 1000).toISOString();
-  const calId = (process.env.GOOGLE_CALENDAR_ID || "").trim();
-console.log("Calendar ID ends with:", calId.slice(-12), "len:", calId.length);
+//   const calId = (process.env.GOOGLE_CALENDAR_ID || "").trim();
+// console.log("Calendar ID ends with:", calId.slice(-12), "len:", calId.length);
 
   const res = await calendar.events.list({
-    calendarId: (process.env.GOOGLE_CALENDAR_ID || "").trim(),
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
     timeMin,
     timeMax,
     singleEvents: true,
