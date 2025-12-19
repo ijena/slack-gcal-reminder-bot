@@ -141,10 +141,12 @@ async function sendSlackReminder(event, whenLabel) {
       timeStyle: "short",
     }).format(new Date(event.start.dateTime));
   }
-
+  const description = cleanDescription(event.description);
   let text = `⏰ *Upcoming event in ${whenLabel}*\n`;
   text += `*${event.summary || "Untitled event"}*\n`;
   text += `📅 ${prettyStart}\n`;
+
+  if(description) text += `\n📝 ${description}\n`;
 
   if (event.location) text += `📍 ${event.location}\n`;
   if (event.htmlLink) text += `🔗 <${event.htmlLink}|Open in Google Calendar>`;
@@ -233,6 +235,15 @@ if (event.start.date && !event.start.dateTime) {
 // });
 
 // console.log("Slack–Google Calendar reminder bot is starting up...");
+
+//function to clean calendar event description
+function cleanDescription(desc) {
+  if (!desc) return null;
+
+  const text = desc.replace(/<[^>]*>/g, "").trim();
+
+  return text || null;
+}
 
 async function main() {
   console.log("Slack–Google Calendar reminder bot is starting up...");
