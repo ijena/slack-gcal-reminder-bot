@@ -148,7 +148,7 @@ async function sendSlackReminder(event, whenLabel) {
 
   if(description) text += `\n📝 ${description}\n`;
 
-  if (event.location) text += `📍 ${event.location}\n`;
+  // if (event.location) text += `📍 ${event.location}\n`;
   if (event.htmlLink) text += `🔗 <${event.htmlLink}|Open in Google Calendar>`;
 
   await slack.chat.postMessage({
