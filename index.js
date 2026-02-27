@@ -121,6 +121,9 @@ const remindedWeek = new Set();
 // 1-day-before reminders
 const remindedDay = new Set();
 
+// 30-day-before reminders
+const reminded30Day = new Set();
+
 // -------------------
 // 7. Send reminder to Slack
 // -------------------
@@ -187,8 +190,9 @@ async function checkCalendarAndNotify() {
 const todayYMD = ymdInTZ(now);
 const tomorrowYMD = ymdInTZ(addDays(now, 1));
 const weekYMD = ymdInTZ(addDays(now, 7));
+const day30YMD = ymdInTZ(addDays(now, 30));
 
-console.log(`Today: ${todayYMD} | Tomorrow: ${tomorrowYMD} | +7 days: ${weekYMD}`);
+console.log(`Today: ${todayYMD} | Tomorrow: ${tomorrowYMD} | +7 days: ${weekYMD} | +30 days: ${day30YMD}`);
 
 for (const event of events) {
   if (!event.id || !event.start) continue;
@@ -218,6 +222,11 @@ if (event.start.date && !event.start.dateTime) {
     await sendSlackReminder(event, "1 week");
     remindedWeek.add(event.id);
   }
+
+  if (eventYMD === day30YMD && !reminded30Day.has(event.id)) {
+  await sendSlackReminder(event, "30 days");
+  reminded30Day.add(event.id);
+}
 }
 
   } catch (err) {
