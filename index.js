@@ -142,7 +142,8 @@ async function sendSlackReminder(event, whenLabel) {
     }).format(new Date(event.start.dateTime));
   }
   const description = cleanDescription(event.description);
-  let text = `⏰ *Upcoming event in ${whenLabel}*\n`;
+  let text = "@channel\n";
+  text += `⏰ *Upcoming event in ${whenLabel}*\n`;
   text += `*${event.summary || "Untitled event"}*\n`;
   text += `📅 ${prettyStart}\n`;
 
